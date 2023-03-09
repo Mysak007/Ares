@@ -457,7 +457,7 @@ class Ares
                     }
 
                     if (strval($resolvedItem->SI->N) === 'Praha') {
-                        $record->setTown(strval($resolvedItem->SI->NMC));
+                        $record->setTown(strval($resolvedItem->SI->N));
                         $record->setArea(strval($resolvedItem->SI->NCO));
                     } elseif (strval($resolvedItem->SI->NCO) !== strval($resolvedItem->SI->N)) {
                         $record->setTown(strval($resolvedItem->SI->N));
