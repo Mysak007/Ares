@@ -20,6 +20,7 @@ class Ares
     const URL_RES = 'https://wwwinfo.mfcr.cz/cgi-bin/ares/darv_res.cgi?ICO=%s';
     const URL_TAX = 'https://wwwinfo.mfcr.cz/cgi-bin/ares/ares_es.cgi?ico=%s&filtr=0';
     const URL_FIND = 'https://wwwinfo.mfcr.cz/cgi-bin/ares/ares_es.cgi?obch_jm=%s&obec=%s&filtr=0';
+    const URL_MULTIPLE = 'https://wwwinfo.mfcr.cz/cgi-bin/ares/xar.cgi';
 
     /**
      * @var string
@@ -68,7 +69,7 @@ class Ares
 
     /**
      * @param string|null $cacheDir
-     * @param bool        $debug
+     * @param bool $debug
      * @param string|null $balancer
      */
     public function __construct($cacheDir = null, $debug = false, $balancer = null)
@@ -81,7 +82,7 @@ class Ares
             $this->balancer = $balancer;
         }
 
-        $this->cacheDir = $cacheDir.'/defr/ares';
+        $this->cacheDir = $cacheDir . '/defr/ares';
         $this->debug = $debug;
 
         if (!is_dir($this->cacheDir)) {
@@ -92,25 +93,17 @@ class Ares
     /**
      * @param $id
      *
-     * @throws InvalidArgumentException
+     * @return AresRecord
      * @throws Ares\AresException
      *
-     * @return AresRecord
+     * @throws InvalidArgumentException
      */
     public function findByIdentificationNumber($id)
     {
-        $this->checkCompanyId($id);
+        $this->checkCompanyId((string)$id);
 
         if (empty($id)) {
             throw new AresException('IČ firmy musí být zadáno.');
-        }
-
-        $cachedFileName = $id.'_'.date($this->cacheStrategy).'.php';
-        $cachedFile = $this->cacheDir.'/bas_'.$cachedFileName;
-        $cachedRawFile = $this->cacheDir.'/bas_raw_'.$cachedFileName;
-
-        if (is_file($cachedFile)) {
-            return unserialize(file_get_contents($cachedFile));
         }
 
         $url = $this->composeUrl(sprintf(self::URL_BAS, $id));
@@ -128,7 +121,7 @@ class Ares
                 $elements = $data->children($ns['D'])->VBAS;
 
                 $ico = $elements->ICO;
-                if ((string) $ico !== (string) $id) {
+                if ((string)$ico !== (string)$id) {
                     throw new AresException('IČ firmy nebylo nalezeno.');
                 }
 
@@ -168,6 +161,8 @@ class Ares
 
                 $stateInfo = $elements->AA->AU->children($ns['U']);
                 $record->setStateCode(strval($stateInfo->KK));
+
+                return $record;
             } else {
                 throw new AresException('Databáze ARES není dostupná.');
             }
@@ -185,10 +180,10 @@ class Ares
      *
      * @param $id
      *
-     * @throws InvalidArgumentException
+     * @return AresRecord
      * @throws Ares\AresException
      *
-     * @return AresRecord
+     * @throws InvalidArgumentException
      */
     public function findInResById($id)
     {
@@ -196,9 +191,9 @@ class Ares
 
         $url = $this->composeUrl(sprintf(self::URL_RES, $id));
 
-        $cachedFileName = $id.'_'.date($this->cacheStrategy).'.php';
-        $cachedFile = $this->cacheDir.'/res_'.$cachedFileName;
-        $cachedRawFile = $this->cacheDir.'/res_raw_'.$cachedFileName;
+        $cachedFileName = $id . '_' . date($this->cacheStrategy) . '.php';
+        $cachedFile = $this->cacheDir . '/res_' . $cachedFileName;
+        $cachedRawFile = $this->cacheDir . '/res_raw_' . $cachedFileName;
 
         if (is_file($cachedFile)) {
             return unserialize(file_get_contents($cachedFile));
@@ -216,7 +211,7 @@ class Ares
                 $data = $aresResponse->children($ns['are']);
                 $elements = $data->children($ns['D'])->Vypis_RES;
 
-                if (strval($elements->ZAU->ICO) === $id) {
+                if (strval($elements->ZAU->ICO) === (string)$id) {
                     $record = new AresRecord();
                     $record->setCompanyId(strval($id));
                     $record->setTaxId($this->findVatById($id));
@@ -242,13 +237,12 @@ class Ares
 
     /**
      * Find subject's tax ID in OR (Obchodní rejstřík).
-
      * @param $id
      *
-     * @throws InvalidArgumentException
+     * @return string
      * @throws \Exception
      *
-     * @return string
+     * @throws InvalidArgumentException
      */
     public function findVatById($id)
     {
@@ -256,9 +250,9 @@ class Ares
 
         $url = $this->composeUrl(sprintf(self::URL_TAX, $id));
 
-        $cachedFileName = $id.'_'.date($this->cacheStrategy).'.php';
-        $cachedFile = $this->cacheDir.'/tax_'.$cachedFileName;
-        $cachedRawFile = $this->cacheDir.'/tax_raw_'.$cachedFileName;
+        $cachedFileName = $id . '_' . date($this->cacheStrategy) . '.php';
+        $cachedFile = $this->cacheDir . '/tax_' . $cachedFileName;
+        $cachedRawFile = $this->cacheDir . '/tax_raw_' . $cachedFileName;
 
         if (is_file($cachedFile)) {
             return unserialize(file_get_contents($cachedFile));
@@ -272,12 +266,12 @@ class Ares
             $vatResponse = simplexml_load_string($vatRequest);
 
             if ($vatResponse) {
-                $record = new TaxRecord();
+                $record = new TaxRecord(null);
                 $ns = $vatResponse->getDocNamespaces();
                 $data = $vatResponse->children($ns['are']);
                 $elements = $data->children($ns['dtt'])->V->S;
 
-                if (strval($elements->ico) === $id) {
+                if (strval($elements->ico) === (string)$id) {
                     $record->setTaxId(str_replace('dic=', 'CZ', strval($elements->p_dph)));
                 } else {
                     throw new AresException('DIČ firmy nebylo nalezeno.');
@@ -296,13 +290,13 @@ class Ares
     /**
      * Find subject by its name in OR (Obchodní rejstřík).
      *
-     * @param string      $name
+     * @param string $name
      * @param string|null $city
      *
-     * @throws InvalidArgumentException
+     * @return array|AresRecord[]|AresRecords
      * @throws AresException
      *
-     * @return array|AresRecord[]|AresRecords
+     * @throws InvalidArgumentException
      */
     public function findByName($name, $city = null)
     {
@@ -316,9 +310,9 @@ class Ares
             urlencode(Lib::stripDiacritics($city))
         ));
 
-        $cachedFileName = date($this->cacheStrategy).'_'.md5($name.$city).'.php';
-        $cachedFile = $this->cacheDir.'/find_'.$cachedFileName;
-        $cachedRawFile = $this->cacheDir.'/find_raw_'.$cachedFileName;
+        $cachedFileName = date($this->cacheStrategy) . '_' . md5($name . $city) . '.php';
+        $cachedFile = $this->cacheDir . '/find_' . $cachedFileName;
+        $cachedRawFile = $this->cacheDir . '/find_raw_' . $cachedFileName;
 
         if (is_file($cachedFile)) {
             return unserialize(file_get_contents($cachedFile));
@@ -418,4 +412,82 @@ class Ares
         return $url;
     }
 
+    public function findByMultipleIds(array $ids): array
+    {
+        $xml = $this->prepareXMLForMultipleRequest($ids);
+
+        $send_context = stream_context_create(array(
+            'http' => array(
+                'method' => 'POST',
+                'header' => 'Content-Type: application/xml',
+                'content' => $xml
+            )
+        ));
+
+        $aresRecords = [];
+        try {
+            $aresRequest = file_get_contents(self::URL_MULTIPLE, false, $send_context);
+
+            $aresResponse = simplexml_load_string($aresRequest);
+            $data = $aresResponse->xpath("//SOAP-ENV:Body/*")[0];
+            $odpovedi = $data->children("http://wwwinfo.mfcr.cz/ares/xml_doc/schemas/ares/ares_answer_res/v_1.0.3");
+
+            if ($odpovedi instanceof \SimpleXMLElement) {
+                foreach ($odpovedi->Odpoved as $item) {
+                    $resolvedItem = $item->children('D', true)->Vypis_RES;
+
+                    $record = new AresRecord();
+
+                    $record->setCompanyId(strval($resolvedItem->ZAU->ICO));
+                    $record->setTaxId($this->findVatById((int)$resolvedItem->ZAU->ICO)->getTaxId());
+                    $record->setCompanyName(strval($resolvedItem->ZAU->OF));
+                    if (strval($resolvedItem->SI->NU) !== '') {
+                        $record->setStreet(strval($resolvedItem->SI->NU));
+                    } else {
+                        if (strval($resolvedItem->SI->NCO) !== '') {
+                            $record->setStreet(strval($resolvedItem->SI->NCO));
+                        }
+                    }
+
+                    if (strval($resolvedItem->SI->CO)) {
+                        $record->setStreetHouseNumber(strval($resolvedItem->SI->CD));
+                        $record->setStreetOrientationNumber(strval($resolvedItem->SI->CO));
+                    } else {
+                        $record->setStreetHouseNumber(strval($resolvedItem->SI->CD));
+                    }
+
+                    if (strval($resolvedItem->SI->N) === 'Praha') {
+                        $record->setTown(strval($resolvedItem->SI->NMC));
+                        $record->setArea(strval($resolvedItem->SI->NCO));
+                    } elseif (strval($resolvedItem->SI->NCO) !== strval($resolvedItem->SI->N)) {
+                        $record->setTown(strval($resolvedItem->SI->N));
+                        $record->setArea(strval($resolvedItem->SI->NCO));
+                    } else {
+                        $record->setTown(strval($resolvedItem->SI->N));
+                    }
+
+                    $record->setZip(strval($resolvedItem->SI->PSC));
+
+                    $aresRecords[] = $record;
+                }
+            }
+
+        } catch (\Exception $e) {
+            throw new AresException($e->getMessage());
+        }
+
+        return $aresRecords;
+    }
+
+    private function prepareXMLForMultipleRequest(array $ids): string
+    {
+        $xml = '<are:Ares_dotazy xmlns:are="http://wwwinfo.mfcr.cz/ares/xml_doc/schemas/ares/ares_request_orrg/v_1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://wwwinfo.mfcr.cz/ares/xml_doc/schemas/ares/ares_request_orrg/v_1.0.0 http://wwwinfo.mfcr.cz/ares/xml_doc/schemas/ares/ares_request_orrg/v_1.0.0/ares_request_orrg.xsd" dotaz_datum_cas="2011-06-16T10:01:00" dotaz_pocet="' . count($ids) . '" dotaz_typ="Vypis_RES" vystup_format="XML" validation_XSLT="http://wwwinfo.mfcr.cz/ares/xml_doc/schemas/ares/ares_answer/v_1.0.0/ares_answer.xsl" user_mail="%s" answerNamespaceRequired="http://wwwinfo.mfcr.cz/ares/xml_doc/schemas/ares/ares_answer_res/v_1.0.3" Id="Ares_dotaz">';
+        foreach ($ids as $key => $id) {
+            $bodyXml = '<Dotaz><Pomocne_ID>' . ($key + 1) . '</Pomocne_ID><ICO>' . $id . '</ICO></Dotaz>';
+            $xml .= $bodyXml;
+        }
+        $xml .= '</are:Ares_dotazy>';
+
+        return $xml;
+    }
 }

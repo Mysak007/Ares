@@ -13,7 +13,7 @@ use Goutte\Client as GouteClient;
 class AresRecord
 {
     /**
-     * @var int
+     * @var string
      */
     private $companyId;
 
