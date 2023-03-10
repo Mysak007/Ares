@@ -7,6 +7,7 @@ use Defr\Ares\AresRecord;
 use Defr\Ares\AresRecords;
 use Defr\Ares\TaxRecord;
 use InvalidArgumentException;
+use PHPUnit\Util\Exception;
 
 /**
  * Class Ares provides a way for retrieving data about business subjects from Czech Business register
@@ -274,7 +275,7 @@ class Ares
                 if (strval($elements->ico) === (string)$id) {
                     $record->setTaxId(str_replace('dic=', 'CZ', strval($elements->p_dph)));
                 } else {
-                    throw new AresException('DIČ firmy nebylo nalezeno.');
+                    $record = null;
                 }
             } else {
                 throw new AresException('Databáze MFČR není dostupná.');
@@ -436,39 +437,47 @@ class Ares
                 foreach ($odpovedi->Odpoved as $item) {
                     $resolvedItem = $item->children('D', true)->Vypis_RES;
 
-                    $record = new AresRecord();
-
-                    $record->setCompanyId(strval($resolvedItem->ZAU->ICO));
-                    $record->setTaxId($this->findVatById((int)$resolvedItem->ZAU->ICO)->getTaxId());
-                    $record->setCompanyName(strval($resolvedItem->ZAU->OF));
-                    if (strval($resolvedItem->SI->NU) !== '') {
-                        $record->setStreet(strval($resolvedItem->SI->NU));
-                    } else {
-                        if (strval($resolvedItem->SI->NCO) !== '') {
-                            $record->setStreet(strval($resolvedItem->SI->NCO));
+                    if (isSet($resolvedItem->ZAU)) {
+                        $record = new AresRecord();
+                        $record->setCompanyId(strval($resolvedItem->ZAU->ICO));
+                        try {
+                            $taxId = $this->findVatById((int)$resolvedItem->ZAU->ICO);
+                            if ($taxId){
+                                $record->setTaxId($taxId->getTaxId());
+                            }
+                        } catch (Exception $exception){
+                            $record->setTaxId(null);
                         }
+                        $record->setCompanyName(strval($resolvedItem->ZAU->OF));
+                        if (strval($resolvedItem->SI->NU) !== '') {
+                            $record->setStreet(strval($resolvedItem->SI->NU));
+                        } else {
+                            if (strval($resolvedItem->SI->NCO) !== '') {
+                                $record->setStreet(strval($resolvedItem->SI->NCO));
+                            }
+                        }
+
+                        if (strval($resolvedItem->SI->CO)) {
+                            $record->setStreetHouseNumber(strval($resolvedItem->SI->CD));
+                            $record->setStreetOrientationNumber(strval($resolvedItem->SI->CO));
+                        } else {
+                            $record->setStreetHouseNumber(strval($resolvedItem->SI->CD));
+                        }
+
+                        if (strval($resolvedItem->SI->N) === 'Praha') {
+                            $record->setTown(strval($resolvedItem->SI->N));
+                            $record->setArea(strval($resolvedItem->SI->NCO));
+                        } elseif (strval($resolvedItem->SI->NCO) !== strval($resolvedItem->SI->N)) {
+                            $record->setTown(strval($resolvedItem->SI->N));
+                            $record->setArea(strval($resolvedItem->SI->NCO));
+                        } else {
+                            $record->setTown(strval($resolvedItem->SI->N));
+                        }
+
+                        $record->setZip(strval($resolvedItem->SI->PSC));
+
+                        $aresRecords[] = $record;
                     }
-
-                    if (strval($resolvedItem->SI->CO)) {
-                        $record->setStreetHouseNumber(strval($resolvedItem->SI->CD));
-                        $record->setStreetOrientationNumber(strval($resolvedItem->SI->CO));
-                    } else {
-                        $record->setStreetHouseNumber(strval($resolvedItem->SI->CD));
-                    }
-
-                    if (strval($resolvedItem->SI->N) === 'Praha') {
-                        $record->setTown(strval($resolvedItem->SI->N));
-                        $record->setArea(strval($resolvedItem->SI->NCO));
-                    } elseif (strval($resolvedItem->SI->NCO) !== strval($resolvedItem->SI->N)) {
-                        $record->setTown(strval($resolvedItem->SI->N));
-                        $record->setArea(strval($resolvedItem->SI->NCO));
-                    } else {
-                        $record->setTown(strval($resolvedItem->SI->N));
-                    }
-
-                    $record->setZip(strval($resolvedItem->SI->PSC));
-
-                    $aresRecords[] = $record;
                 }
             }
 

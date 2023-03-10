@@ -20,7 +20,7 @@ class AresRecord
     /**
      * @var string
      */
-    private $taxId;
+    private ?string $taxId = null;
 
     /**
      * @var string
@@ -123,7 +123,10 @@ class AresRecord
         return $this->companyId;
     }
 
-    public function getTaxId()
+    /**
+     * @return string|null
+     */
+    public function getTaxId(): ?string
     {
         return $this->taxId;
     }
@@ -205,7 +208,10 @@ class AresRecord
         $this->companyId = $companyId;
     }
 
-    public function setTaxId($taxId)
+    /**
+     * @param string|null $taxId
+     */
+    public function setTaxId(?string $taxId): void
     {
         $this->taxId = $taxId;
     }
