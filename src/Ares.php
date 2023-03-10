@@ -267,13 +267,12 @@ class Ares
             $vatResponse = simplexml_load_string($vatRequest);
 
             if ($vatResponse) {
-                $record = new TaxRecord(null);
                 $ns = $vatResponse->getDocNamespaces();
                 $data = $vatResponse->children($ns['are']);
                 $elements = $data->children($ns['dtt'])->V->S;
 
                 if (strval($elements->ico) === (string)$id) {
-                    $record->setTaxId(str_replace('dic=', 'CZ', strval($elements->p_dph)));
+                    $record = new TaxRecord(str_replace('dic=', 'CZ', strval($elements->p_dph)));
                 } else {
                     $record = null;
                 }
