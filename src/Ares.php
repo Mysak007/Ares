@@ -271,7 +271,7 @@ class Ares
                 $data = $vatResponse->children($ns['are']);
                 $elements = $data->children($ns['dtt'])->V->S;
 
-                if (strval($elements->ico) === (string)$id) {
+                if ($elements && strval($elements->ico) === (string)$id) {
                     $record = new TaxRecord(str_replace('dic=', 'CZ', strval($elements->p_dph)));
                 } else {
                     $record = null;
