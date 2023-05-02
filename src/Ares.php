@@ -438,9 +438,11 @@ class Ares
 
                     if (isSet($resolvedItem->ZAU)) {
                         $record = new AresRecord();
-                        $record->setCompanyId(strval($resolvedItem->ZAU->ICO));
+                        $ico = strval($resolvedItem->ZAU->ICO);
+                        $record->setCompanyId($ico);
+
                         try {
-                            $taxId = $this->findVatById((int)$resolvedItem->ZAU->ICO);
+                            $taxId = $this->findVatById($ico);
                             if ($taxId){
                                 $record->setTaxId($taxId->getTaxId());
                             }
